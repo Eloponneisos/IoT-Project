@@ -4,3 +4,5 @@
 1. ESP-32
 2. 1 5xIR sensor
 3. 2 5V motor
+4. Ultrasoon sensor
+5. 4 leds (green, orange, red, blue) 
