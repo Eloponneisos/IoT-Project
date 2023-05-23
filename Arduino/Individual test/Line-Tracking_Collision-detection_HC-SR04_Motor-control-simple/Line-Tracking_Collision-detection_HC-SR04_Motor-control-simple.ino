@@ -2,6 +2,9 @@
 #define left 10
 #define right 9
 
+#define SpeedControl 0.75
+#define SpeedDifference 1.25
+
 //-----Line Sensors-----
 #define lineSensorLL 8
 #define lineSensorL 7
@@ -108,8 +111,8 @@ void loop() {
   }
 
   else if ((value[0] == LOW) && (value[1] == LOW) && (value[2] == HIGH) && (value[3] == LOW) && (value[4] == LOW) && (value[5] == LOW)) {
-    analogWrite(left, 127);
-    analogWrite(right, 127);
+    analogWrite(left, SpeedControl*255);
+    analogWrite(right, SpeedControl*255);
     value[7] = false;
     elapsedTime = 0;
   }
@@ -117,9 +120,9 @@ void loop() {
   else if (((value[0] == HIGH) || (value[1] == HIGH)) && (value[2] == LOW) && (value[3] == LOW) && (value[4] == LOW) && (value[5] == LOW)) {
     analogWrite(left, 0);
     if (value[0] == HIGH) {
-      analogWrite(right, 255);
+      analogWrite(right, SpeedDifference*(SpeedControl*255));
     } else {
-      analogWrite(right, 127);
+      analogWrite(right, SpeedControl*255);
     }
     elapsedTime = 0;
     value[7] = false;
@@ -128,9 +131,9 @@ void loop() {
   else if ((value[0] == LOW) && (value[1] == LOW) && (value[2] == LOW) && ((value[3] == HIGH) || (value[4] == HIGH)) && (value[5] == LOW)) {
     analogWrite(right, 0);
     if (value[4] == HIGH) {
-      analogWrite(left, 255);
+      analogWrite(left, SpeedDifference*(SpeedControl*255));
     } else {
-      analogWrite(left, 127);
+      analogWrite(left, SpeedControl*255);
     }
     elapsedTime = 0;
     value[7] = false;
