@@ -54,10 +54,54 @@ int haltLast = 0;
 int elapsedHalt = 0;
 int currentHalt = 0;
 
+//------Battery Voltage------
+#define BAT 26
+
+float VBAT;
+float R1 = 3259.0;
+float R2 = 983.0;
+
+#define PIN_RED 14
+#define PIN_GREEN 13
+#define PIN_BLUE 12
+
+//------Startup-Tune------
+#define NOTE_CS4 277
+#define NOTE_D4 294
+#define NOTE_E4 330
+#define NOTE_FS4 370
+#define NOTE_GS4 415
+#define NOTE_A4 440
+#define NOTE_B4 494
+#define NOTE_CS5 554
+#define NOTE_D5 587
+#define NOTE_DS5 622
+#define NOTE_E5 659
+#define REST 0
+
+int tempo = 180;
+
+int buzzer = 27;
+
+int melody[] = {
+  NOTE_E5,8,NOTE_D5,8,NOTE_FS4,4,NOTE_GS4,4,
+  NOTE_CS5,8,NOTE_B4,8,NOTE_D4,4,NOTE_E4,4,
+  NOTE_B4,8,NOTE_A4,8,NOTE_CS4,4,NOTE_E4,4,
+  NOTE_A4,2,
+};
+
+int notes = sizeof(melody) / sizeof(melody[0]) / 2;
+
+int wholenote = (60000 * 4) / tempo;
+
+int divider = 0, noteDuration = 0;
+
 void setup() {
+  //------Serial Communication------
   Serial.begin(115200);
   Serial.println("REBOOT");
 
+  //------Motor pins------
   pinMode(M1_EN, OUTPUT);
   pinMode(M1_F, OUTPUT);
   pinMode(M1_R, OUTPUT);
@@ -66,6 +110,7 @@ void setup() {
   pinMode(M2_F, OUTPUT);
   pinMode(M2_R, OUTPUT);
 
+  //------MCP23016 I/O Expander------
   Wire.begin();
   Wire.setClock(100000);
 
@@ -84,11 +129,52 @@ void setup() {
   MCP.pinMode(line, OUTPUT);
   MCP.pinMode(onOFF, OUTPUT);
 
+  //------VBAT------
+  pinMode(BAT, INPUT);
 
-  Serial.println("END BOOT");
+  pinMode(PIN_RED, OUTPUT);
+  pinMode(PIN_GREEN, OUTPUT);
+  pinMode(PIN_BLUE, OUTPUT);
+
+  analogWrite(PIN_RED, 0);
+  analogWrite(PIN_GREEN, 0);
+  analogWrite(PIN_BLUE, 0);
+
+  //------Startup-Tune-----
+  for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
+    divider = melody[thisNote + 1];
+    if (divider > 0) {
+      noteDuration = (wholenote) / divider;
+    } else if (divider < 0) {
+      noteDuration = (wholenote) / abs(divider);
+      noteDuration *= 1.5;
+    }
+    tone(buzzer, melody[thisNote], noteDuration * 0.9);
+    delay(noteDuration);
+    noTone(buzzer);
+
+    Serial.println("END BOOT");
+  }
 }
 
 void loop() {
+
+  batteryCheck();
+
+  if (VBAT >= 8) {
+    analogWrite(PIN_RED, 0);
+    analogWrite(PIN_GREEN, 255);
+    analogWrite(PIN_BLUE, 0);
+  } else if (VBAT < 8 && VBAT >= 6) {
+    analogWrite(PIN_RED, 0);
+    analogWrite(PIN_GREEN, 0);
+    analogWrite(PIN_BLUE, 255);
+  } else if (VBAT < 6) {
+    analogWrite(PIN_RED, 255);
+    analogWrite(PIN_GREEN, 0);
+    analogWrite(PIN_BLUE, 0);
+  }
+
   MCP.digitalWrite(onOFF, HIGH);
 
   if (whiteLine) {
@@ -264,4 +350,11 @@ void loop() {
   } else {
     Serial.println("No line");
   }
+}
+
+void batteryCheck() {
+  VBAT = (((R1 + R2) / R2) * (3.30f / 4095.0f) * analogRead(BAT)) + 0.5f;
+  Serial.print("Battery Voltage = ");
+  Serial.print(VBAT, 2);
+  Serial.println(" V");
 }
