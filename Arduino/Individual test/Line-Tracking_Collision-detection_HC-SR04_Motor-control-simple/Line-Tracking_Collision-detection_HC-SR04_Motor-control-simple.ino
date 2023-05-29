@@ -80,8 +80,6 @@ void loop() {
   Serial.print("cm");
   Serial.println();
 
-  distanceCalc();
-
   if (cm < triggerDistance) {
     value[6] = true;
   } else {
