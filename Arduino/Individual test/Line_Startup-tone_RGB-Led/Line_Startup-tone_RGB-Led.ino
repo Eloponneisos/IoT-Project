@@ -43,7 +43,7 @@ bool right = false;
 #define M2_F 18
 #define M2_R 19
 
-#define high 100
+#define high 120
 #define low 0
 
 //------Line Controls------
