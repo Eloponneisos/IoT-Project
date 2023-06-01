@@ -1,3 +1,25 @@
+//------WiFi and MQTT Setup------
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+const char* ssid = "embed";
+const char* password = "weareincontrol";
+const char* mqttServer = "192.168.1.17";
+const int mqttPort = 1883;
+const char* mqttUser = "Nick";
+const char* mqttPassword = "odroid";
+const char* clientID = "client_livingroom";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+#define Node_ID "0x01"
+#define Broad_ID "0x00"
+
+int MQTTHalt = 50;
+int MQTTHaltLast;
+int MQTTHaltCurrent;
+
 //------MCP23016------
 #include <MCP23016.h>
 
@@ -15,7 +37,7 @@ uint8_t mcpB;  //internal variable of the library - required to be declared as i
 #define line a2
 #define onOFF a3
 
-//------Sensor Definition------
+//------sensor------
 #define lineSensorLL b0
 #define lineSensorL b1
 #define lineSensorC b2
@@ -23,8 +45,6 @@ uint8_t mcpB;  //internal variable of the library - required to be declared as i
 #define lineSensorRR b4
 
 #define collisionSensor b5
-
-//------Sensor State Handling------
 
 int sensors[6] = { lineSensorLL, lineSensorL, lineSensorC, lineSensorR, lineSensorRR, collisionSensor };
 
@@ -35,8 +55,6 @@ bool value[8] = { false, false, false, false, false, false, false, false };
 bool middle = false;
 bool left = false;
 bool right = false;
-
-bool whiteLine = true;
 
 //------Motor Controls------
 #define M1_EN 15
@@ -49,6 +67,9 @@ bool whiteLine = true;
 
 #define high 120
 #define low 0
+
+//------Line Controls------
+bool whiteLine = true;
 
 bool haltControl = true;
 int haltLast = 0;
@@ -69,6 +90,9 @@ int triggerDistance = 10;
 float VBAT;
 float R1 = 3259.0;
 float R2 = 983.0;
+
+#define Full 8
+#define Medium 5
 
 #define PIN_RED 14
 #define PIN_GREEN 13
@@ -109,6 +133,38 @@ void setup() {
   //------Serial Communication------
   Serial.begin(115200);
   Serial.println("REBOOT");
+
+  //------Connecting to the WiFi------
+  Serial.println();
+  Serial.print("Connecting to ");
+  WiFi.begin(ssid, password);  // Connectie met het netwerk beginnen
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("Connecting to WiFi..");
+  }
+  Serial.println("Connected to the WiFi network");
+
+  //------Connecting to the MQTT Server------
+  client.setServer(mqttServer, mqttPort);
+  client.setCallback(callback);
+
+  while (!client.connected()) {
+    Serial.println("Connecting to MQTT...");
+    if (client.connect(Node_ID, mqttUser, mqttPassword)) {
+      Serial.println("Connected");
+      Serial.println("User: " + String(mqttUser) + " | Pass: " + String(mqttPassword));
+    } else {
+      Serial.print("failed with state ");
+      Serial.print(client.state());
+      delay(2000);
+    }
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected.");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
 
   //------Motor pins------
   pinMode(M1_EN, OUTPUT);
@@ -155,7 +211,7 @@ void setup() {
   analogWrite(PIN_RED, 0);
   analogWrite(PIN_GREEN, 0);
   analogWrite(PIN_BLUE, 0);
-
+  
   //------Startup-Tune-----
   for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
     divider = melody[thisNote + 1];
@@ -174,25 +230,35 @@ void setup() {
 }
 
 void loop() {
+  if (!client.connected()) {
+    reconnect();
+  }
+
+  MQTTHaltCurrent = millis();
+  if ((MQTTHaltCurrent - MQTTHaltLast) >= MQTTHalt) {
+    MQTTHaltLast = MQTTHaltCurrent;
+    Serial.println("MQTT SEND");
+    sendDataMQTT();
+  }
 
   batteryCheck();
 
-  if (VBAT >= 8) {
+  if (VBAT >= Full) {
     analogWrite(PIN_RED, 0);
     analogWrite(PIN_GREEN, 255);
     analogWrite(PIN_BLUE, 0);
-  } else if (VBAT < 8 && VBAT >= 6) {
+  } else if (VBAT < Full && VBAT >= Medium) {
     analogWrite(PIN_RED, 0);
     analogWrite(PIN_GREEN, 0);
     analogWrite(PIN_BLUE, 255);
-  } else if (VBAT < 6) {
+  } else if (VBAT < Medium) {
     analogWrite(PIN_RED, 255);
     analogWrite(PIN_GREEN, 0);
     analogWrite(PIN_BLUE, 0);
   }
 
   distanceCalc();
-  Serial.println("Dist: " + String(cm) + " cm");
+  //Serial.println("Dist: " + String(cm) + " cm");
 
   if (cm < triggerDistance) {
     value[7] = true;
@@ -216,16 +282,15 @@ void loop() {
   }
 
 
-  //------Printing the sensor state------
-  for (int i = 0; i < 8; i++) {
+
+  /*for (int i = 0; i < 8; i++) {
     Serial.print(String(sensornames[i]));
     Serial.print(": ");
     Serial.print(value[i]);
     Serial.print(" | ");
   }
-  Serial.println();
+  Serial.println();*/
 
-  //------Changing the status leds------
   if (value[5] == false && value[6] == false && value[7] == false) {
     MCP.digitalWrite(problem, HIGH);
   } else {
@@ -258,7 +323,7 @@ void loop() {
     value[6] = false;
   }
 
-  //------Traverse White line control------
+  //------White line controll------
   else if (((value[1] == HIGH) && (value[2] == HIGH) && (value[3] == HIGH) && (value[5] == LOW) && (value[7] == LOW)) || haltControl == false) {
     digitalWrite(M1_EN, LOW);
     analogWrite(M1_F, low);
@@ -266,7 +331,7 @@ void loop() {
     digitalWrite(M2_EN, LOW);
     analogWrite(M2_F, low);
     analogWrite(M2_R, low);
-    Serial.println("Halt point reached");
+    //Serial.println("Halt point reached");
     if (haltControl) {
       haltControl = false;
       haltLast = millis();
@@ -365,18 +430,18 @@ void loop() {
       left = false;
       right = false;
       value[6] = true;
-      Serial.println("Lost the line");
+      //Serial.println("Lost the line");
     }
   }
 
   //------Unforeseen state------
   else {
-    Serial.println("ERROR");
+    //Serial.println("ERROR");
     value[6] = false;
   }
 
   //------Printing the states------
-  if (middle == true) {
+  /*if (middle == true) {
     Serial.println("Middle");
   } else if (left == true) {
     Serial.println("left");
@@ -384,15 +449,73 @@ void loop() {
     Serial.println("right");
   } else {
     Serial.println("No line");
+  }*/
+}
+
+void reconnect() {
+  client.disconnect();
+  while (!client.connected()) {
+    //Serial.println("Attempting MQTT Connection...");
+
+    if (client.connect(Node_ID, mqttUser, mqttPassword)) {
+      //Serial.println("Connected");
+      break;
+    } else {
+      /*Serial.print("Connection failed, rc= ");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");*/
+
+      delay(5000);
+    }
   }
+  return;
+}
+
+void sendDataMQTT() {
+  for (int i = 0; i < 8; i++) {
+    String sensValue = "0";
+    if (value[i] == true) {
+      sensValue = "1";
+    } else {
+      sensValue = "0";
+    }
+    String(tempS) = String(sensValue);
+    char message1[2];
+    tempS.toCharArray(message1, 2);
+    String(topic) = "IoT_Car/sensor/" + String(i);
+    char topicTemp[17];
+    topic.toCharArray(topicTemp, 17);
+    client.publish(topicTemp, message1);
+    //Serial.print(topicTemp);
+    //Serial.println(" | MQTT Send: " + String(i) + " | With value of: " + String(sensValue));
+  }
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+
+  //Serial.print("Message arrived in topic: ");
+ // Serial.println(topic);
+
+  String messageTemp;
+
+  for (int i = 0; i < length; i++) {
+    messageTemp += (char)payload[i];
+  }
+
+  /*Serial.println("Msg: " + messageTemp);
+
+  Serial.println("-----------------------");
+  Serial.println();*/
+
+  delay(10);
 }
 
 //------Checking the battery voltage------
 void batteryCheck() {
   VBAT = (((R1 + R2) / R2) * (3.30f / 4095.0f) * analogRead(BAT)) + 0.5f;
-  Serial.print("Battery Voltage = ");
+  /*Serial.print("Battery Voltage = ");
   Serial.print(VBAT, 2);
-  Serial.println(" V");
+  Serial.println(" V");*/
 }
 
 //------Calculating the distance to the nearest object infront of the sensor------
