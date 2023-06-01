@@ -20,6 +20,30 @@
       - [InfluxDB](#influxdb)
       - [Grafana](#grafana)
 
+<!--
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+-->
 
 ## Intro
 In this project I will make an autonomous line-tracking car. The car is a prototype for the Mercedes Benz museum. Once done, the car will be able to perform the following actions:
@@ -50,6 +74,22 @@ In this project I will make an autonomous line-tracking car. The car is a protot
 15. 1 Castor Wheel
 16. Wires
 
+<!--
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+-->
+
 ## Body Plate
 ![Body-Plate](./Autonomous%20line%20tracking%20car%20Design%20Drawing%20v4.png)
 ## The Schematic & PCB
@@ -57,6 +97,33 @@ The Schematic (.sch eagle file) can be found in the [./PCB&Schematic/](./PCB%26S
 ![Schematic](https://imgur.com/wjlqvnd.png)
 An Image of the PCB and the gerber files can also be found there.
 ![PCB](./PCB&Schematic/PCB.png)
+
+<!--
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+-->
 
 ## The Code
 ### Without MQTT
@@ -185,7 +252,7 @@ The last 3 booleans have been added, because the line was way smaller than the g
 In the setup I don't have anything, because there are just values which don't need to be initialised.
 ##### Loop
 The loop has several pieces which are considered in the sensor handling proces.
-###### Distance
+##### Distance
 This is a simple if statement that checks if the current value of the distance sensor is greater than the set trigger distance and adjusts the distance value accordingly.
 ```
   if (cm < triggerDistance) {
@@ -194,7 +261,7 @@ This is a simple if statement that checks if the current value of the distance s
     value[7] = false;
   }
 ```
-###### Whiteline
+##### Whiteline
 For testing purposes and in order to be versatile, I implemented a simple value that reads the values of the sensors according to the preset mode which can change between following a white line or a black line.
 ```
   if (whiteLine) {
@@ -210,7 +277,7 @@ For testing purposes and in order to be versatile, I implemented a simple value 
     value[5] = !value[5];
   }
 ```
-###### Debug Printing
+##### Debug Printing
 I also implemented a simple debug print of the sensor states with a for-loop.
 ```
   for (int i = 0; i < 8; i++) {
@@ -224,7 +291,7 @@ I also implemented a simple debug print of the sensor states with a for-loop.
 #### Motor Controls
 ##### Pre-Setup
 In the pre-setup we define the motor pins, the speed of the motors and some variables to controll the halting of the vehicle at a traverse line.
-###### Motor Pins
+##### Motor Pins
 This vehicle has 2 5V DC motors called M1 and M2. Each of these motors are connected to the motor driver which has 3 inputs called EN, F and R. EN is short for Enable, which turns the engines on or off. F is short for Forward which makes the motor spin forward relative to the vehicle. R is short for Reverse which makes the motor spin in reverse relative to the vehicle.
 ```
 #define M1_EN 15
@@ -235,13 +302,13 @@ This vehicle has 2 5V DC motors called M1 and M2. Each of these motors are conne
 #define M2_F 18
 #define M2_R 19
 ```
-###### Motor Speed
+##### Motor Speed
 The motor speed is changed using PWM. In this case of the motor direction should not spin, then the value would be `low` of 0 and if the motor direction should spin, then the value would be `high` or 120.
 ```
 #define high 120
 #define low 0
 ```
-###### Halt Control
+##### Halt Control
 For the vehicle to be able to take halt at a traverse line, we need to have a couple different values. First of all we need a state value to check if the vehicle is in halt. Then we need some variables to control the time that the vehicle should halt. At last we add a button to be able to skip the halting and move forward straight away.
 ```
 bool haltControl = true;
@@ -268,7 +335,7 @@ In the setup we only need to add the correct pin modes to the motor pins and to 
 ```
 ##### Loop
 In the loop we control the behavior of the car so that it follows the line. This has several if/else if/else statements which will be explained one by one hereunder.
-###### Stand still at obstacle
+##### Stand still at obstacle
 When the vehicle detects an obstacle either through it's distance sensor or through it's collision sensor, then all motors will be shut down.
 ```
   //------Stand still at obstacle------
@@ -285,7 +352,7 @@ When the vehicle detects an obstacle either through it's distance sensor or thro
     value[6] = false;
   }
 ```
-###### Travese white line control
+##### Travese white line control
 The following code checks to see if there is a traverse white line which signals a holding point. It checks first to see if all line sensors' values are the line color's value. After that we stop the motors. Then we change the haltControl variable to signal that a halt point has geen reached and we start the timer. Then either after 5 seconds or after the press of the continue button, the car drives forward for 200ms which should be enough to clear the holding point line. 
 ```
   //------Traverse White line control------
@@ -319,7 +386,7 @@ The following code checks to see if there is a traverse white line which signals
     value[6] = false;
   }
 ```
-###### Line Following: Center White
+##### Line Following: Center White
 In this statement we check to see if the most center sensor is the color of the line. If so, then we can just have both motors drive forward. In addition to this, we set the middle variable to true, to signal that the last sensor was the middle one and we set index 6 of the value array to false, which tells us that the vehicle has not lost the line.
 ```
   //------Line following: center white------
@@ -336,7 +403,7 @@ In this statement we check to see if the most center sensor is the color of the 
     value[6] = false;
   }
 ```
-###### Line Following: Left White
+##### Line Following: Left White
 In this statement we check to see if the left sensor is the color of the line. If so, then we set the left motor (M1) to drive forward and the right motor (M2) to drive backwards. We do this alternate motor movement to make our turning smaller and so to have less problems related to that. In addition to this, we set the left variable to true, to signal that the last sensor was the left one and we set index 6 of the value array to false, which tells us that the vehicle has not lost the line.
 ```
   //------Line following: Left white------
@@ -353,7 +420,7 @@ In this statement we check to see if the left sensor is the color of the line. I
     value[6] = false;
   }
 ```
-###### Line Following: Right White
+##### Line Following: Right White
 In this statement we check to see if the right sensor is the color of the line. If so, then we set the left motor (M1) to drive backwards and the right motor (M2) to drive forwards. We do this alternate motor movement to make our turning smaller and so to have less problems related to that. In addition to this, we set the right variable to true, to signal that the last sensor was the right one and we set index 6 of the value array to false, which tells us that the vehicle has not lost the line.
 ```
   //------Line following: Right white------
@@ -370,7 +437,7 @@ In this statement we check to see if the right sensor is the color of the line. 
     value[6] = false;
   }
 ```
-###### Line Lost Check
+##### Line Lost Check
 In this else if statement we check to se if the vehicle has lost the line. If the vehicle has not lost the line, then this statement will be skipped. Otherwise it will first check which sensor was the last one. If the last sensor was the middle one, then we just keep driving forward. If the last sensor was the left one, then we turn to the left. If the last sensor was the right one, then we turn to the right. If the last sensor was not the middle one nor the left nor the right one, then classify the vehicle as lost. At which point we change index 6 of the value array to true which lets the operators know that the vehicle is lost. This statement basically extends the range of the sensors to a little outside of their measuring capability.
 ```
   //------Line lost check------
@@ -411,7 +478,7 @@ In this else if statement we check to se if the vehicle has lost the line. If th
     }
   }
 ```
-###### Unforseen state
+##### Unforseen state
 If all the previous statements are no applicable, then there must be something wrong with the vehicle or its sensor and so the print an error which will let the operators know that there is a problem.
 ```
   //------Unforeseen state------
